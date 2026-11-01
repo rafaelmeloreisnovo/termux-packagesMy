@@ -17,15 +17,18 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Falsify profile graph contracts
         run: python3 scripts/tests/test_rafcodephi_profile_architecture.py
       - name: Resolve current output-producing recipes and RMR blobs
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           mkdir -p build/reports
           python3 scripts/validate_rafcodephi_profile_architecture.py \
             --root . \
-            --source-sha "$GITHUB_SHA" \
+            --source-sha "$CANDIDATE_SHA" \
             --out build/reports/rafcodephi-profile-architecture.json
           python3 scripts/validate_rafcodephi_federated_provenance.py
       - name: Read-only result boundaries
