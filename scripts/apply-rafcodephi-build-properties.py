@@ -21,9 +21,12 @@ def sha256_bytes(data: bytes) -> str:
 
 
 def audit_source(text: str) -> dict:
-    current_count = text.count(CURRENT_ASSIGNMENT)
-    target_count = text.count(TARGET_ASSIGNMENT)
-    repo_count = text.count(REPO_ASSIGNMENT)
+    # RAFCODEPHI local delta (2026-11-01): exact line identities only.
+    # A comment, substring or shell fragment cannot substitute for a source assignment.
+    lines = text.splitlines()
+    current_count = lines.count(CURRENT_ASSIGNMENT)
+    target_count = lines.count(TARGET_ASSIGNMENT)
+    repo_count = lines.count(REPO_ASSIGNMENT)
     return {
         "current_assignment_count": current_count,
         "target_assignment_count": target_count,
@@ -57,7 +60,15 @@ def transform(text: str) -> tuple[str, dict]:
             f"expected=1 observed={before['repo_assignment_count']}"
         )
 
-    transformed = text.replace(CURRENT_ASSIGNMENT, TARGET_ASSIGNMENT, 1)
+    # Preserve line endings and all third-party build recipe content verbatim.
+    lines = text.splitlines(keepends=True)
+    locations = [idx for idx, line in enumerate(lines)
+                 if line.rstrip("\r\n") == CURRENT_ASSIGNMENT]
+    if len(locations) != 1:
+        raise RuntimeError("APP_PACKAGE_ASSIGNMENT_NOT_UNIQUE")
+    idx = locations[0]
+    lines[idx] = lines[idx].replace(CURRENT_ASSIGNMENT, TARGET_ASSIGNMENT, 1)
+    transformed = "".join(lines)
     after = audit_source(transformed)
     if after != {
         "current_assignment_count": 0,

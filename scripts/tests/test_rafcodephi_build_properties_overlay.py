@@ -68,3 +68,22 @@ def test_repo_identity_changed_fails_closed() -> None:
 
 def test_mixed_upstream_and_target_assignments_fails_closed() -> None:
     expect_fail(BASE + mod.TARGET_ASSIGNMENT + "\n", "TARGET_ASSIGNMENT_ALREADY_PRESENT")
+
+def test_comment_only_cannot_impersonate_source_assignment() -> None:
+    comment_only = BASE.replace(mod.CURRENT_ASSIGNMENT, "# " + mod.CURRENT_ASSIGNMENT)
+    expect_fail(comment_only, "APP_PACKAGE_ASSIGNMENT_NOT_UNIQUE")
+
+
+def test_embedded_substring_cannot_impersonate_source_assignment() -> None:
+    embedded = BASE.replace(mod.CURRENT_ASSIGNMENT, "PREFIX_" + mod.CURRENT_ASSIGNMENT)
+    expect_fail(embedded, "APP_PACKAGE_ASSIGNMENT_NOT_UNIQUE")
+
+
+def test_preserves_comment_and_crlf_without_adding_host_dependencies() -> None:
+    src = BASE + "# " + mod.CURRENT_ASSIGNMENT + "\n"
+    src = src.replace("\n", "\r\n")
+    new, report = mod.transform(src)
+    assert report["mode"] == "APPLIED"
+    assert "# " + mod.CURRENT_ASSIGNMENT + "\r\n" in new
+    assert new.count("\r\n") == src.count("\r\n")
+    assert new.replace(mod.TARGET_ASSIGNMENT, mod.CURRENT_ASSIGNMENT, 1) == src
