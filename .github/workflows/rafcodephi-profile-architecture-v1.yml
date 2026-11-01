@@ -5,6 +5,13 @@ on:
       - 'scripts/validate_rafcodephi_profile_architecture.py'
       - 'scripts/tests/test_rafcodephi_profile_architecture.py'
       - 'docs/assurance/RAFCODEPHI_PROFILE_GRAPH_AUDIT_V1.md'
+      - 'docs/assurance/RAFCODEPHI_PROFILE_SYSTEM_ARCHITECTURE_V1.md'
+      - 'docs/assurance/rafcodephi-system-graph.snapshot.v1.json'
+      - 'docs/assurance/rafcodephi-federated-components.v1.json'
+      - 'docs/assurance/rafcodephi-freestanding-modules.v1.json'
+      - 'packages/rafcodephi-*/**'
+      - 'scripts/build/termux_create_debian_subpackages.sh'
+      - 'scripts/build/termux_step_setup_variables.sh'
       - '.github/workflows/rafcodephi-profile-architecture-v1.yml'
   workflow_dispatch:
 permissions:
@@ -40,5 +47,25 @@ jobs:
           assert d["claim_allowed"] is False and d["release_allowed"] is False
           assert d["build_gate"]=="NOT_RUN" and d["device_gate"]=="NOT_RUN"
           assert all(x["artifact"]=="TOKEN_VAZIO_DEB" for x in d["output_producers"])
-          print("PASS_SOURCE_ONLY; DEB=NOT_RUN; ANDROID=TOKEN_VAZIO; RELEASE=HOLD")
+          from pathlib import Path
+          from importlib.util import spec_from_file_location, module_from_spec
+          snapshot=json.load(open("docs/assurance/rafcodephi-system-graph.snapshot.v1.json"))
+          assert snapshot["schema"]=="rafaelia.termux.profile-system-graph/v1"
+          assert snapshot["constraints"]["claim_allowed"] is False
+          assert snapshot["counts"] == {"profiles":5,"dependency_edges":34,"resolved_outputs":34,"federated_components":6}
+          assert [(x["metapackage"],x["depends"]) for x in snapshot["profiles"]] == [(x["package"],x["depends"]) for x in d["profiles"]]
+          assert [(x["source"],x["target"]) for x in snapshot["dependency_edges"]] == [(x["source"],x["target"]) for x in d["dependency_edges"]]
+          a={x["output"]:(x["producer_recipe"],x["mode"]) for x in snapshot["output_producers"]}
+          b={x["output"]:(x["producer"],x["mode"]) for x in d["output_producers"]}
+          assert a==b
+          spec=spec_from_file_location("sourcegate","scripts/validate_rafcodephi_profile_architecture.py")
+          mod=module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          for x in snapshot["profiles"]:
+              assert mod.blob_sha(Path(x["source_path"]))==x["source_blob"]
+          for x in snapshot["output_producers"]:
+              assert mod.blob_sha(Path(x["source_path"]))==x["source_blob"]
+              assert x["artifact_state"]=="TOKEN_VAZIO_DEB"
+          assert mod.blob_sha(Path(snapshot["origin_manifest"]["path"]))==snapshot["origin_manifest"]["git_blob"]
+          print("PASS_SOURCE_ONLY; SNAPSHOT_GRAPH_VERIFIED; DEB=NOT_RUN; ANDROID=TOKEN_VAZIO; RELEASE=HOLD")
           PY
