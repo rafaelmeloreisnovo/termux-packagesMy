@@ -14,6 +14,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 GITHUB_EXPRESSION = re.compile(r"\$\{\{.*?\}\}", re.DOTALL)
+GITHUB_EXPRESSION_START = re.compile(r"\$\{\{")
 
 GITHUB_EVENTS = frozenset({
     "branch_protection_rule",
@@ -89,6 +90,11 @@ def bash_syntax_check(path: Path, job_name: str, step_index: int, step: dict, de
 def validate_workflow(path: Path) -> int:
     try:
         source = path.read_text(encoding="utf-8")
+        # YAML accepts an unterminated `${{ ... }` as an ordinary scalar, but
+        # GitHub Actions rejects it before creating jobs. Require every opener
+        # to belong to a complete expression before parsing YAML.
+        if len(GITHUB_EXPRESSION_START.findall(source)) != len(GITHUB_EXPRESSION.findall(source)):
+            fail(f"github_expression_unclosed path={path.relative_to(ROOT)}")
         documents = list(yaml.safe_load_all(source))
         # GitHub uses YAML 1.2 boolean semantics. PyYAML SafeLoader treats
         # literal "on" as True (YAML 1.1), so check trigger keys via BaseLoader.
