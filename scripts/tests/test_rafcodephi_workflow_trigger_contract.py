@@ -34,6 +34,7 @@ CASES = [
     ("boolean_off_trigger", "on: off\n", False, "github_trigger_unknown"),
     ("null_trigger", "on:\n", False, "github_triggers_missing"),
     ("quoted_empty_trigger", "on: ''\n", False, "github_triggers_missing"),
+    ("unclosed_github_expression", "on: pull_request\nconcurrency:\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }\n", False, "github_expression_unclosed"),
 ]
 
 
@@ -52,7 +53,7 @@ def main() -> int:
                     raise AssertionError(f"{case}: unexpected ACCEPTED={result}")
     print(
         "RAFCODEPHI_TRIGGER_CONTRACT=PASS "
-        "positive=3 negative=7 missing=blocked yaml11_on_safe=true "
+        "positive=3 negative=8 missing=blocked expressions_fail_closed=true yaml11_on_safe=true "
         "android_runtime=NOT_RUN claim_allowed=false"
     )
     return 0
